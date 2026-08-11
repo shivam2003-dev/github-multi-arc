@@ -1,56 +1,75 @@
-# Multi-Arch Buildah vs Buildx
+# Production Multi-Arch Buildah vs Buildx
 
-[![Multi-Arch Buildah vs Buildx](https://github.com/shivam2003-dev/github-multi-arc/actions/workflows/build-multiarch.yml/badge.svg)](https://github.com/shivam2003-dev/github-multi-arc/actions/workflows/build-multiarch.yml)
+[![Production Multi-Arch Buildah vs Buildx](https://github.com/shivam2003-dev/github-multi-arc/actions/workflows/build-multiarch.yml/badge.svg)](https://github.com/shivam2003-dev/github-multi-arc/actions/workflows/build-multiarch.yml)
 
-A parallel GitHub Actions benchmark that builds the same OCI image for
-`linux/amd64` and `linux/arm64` using both Buildah and Docker Buildx. Each job
-publishes its own tags to Docker Hub, and a final comparison job reports how
-long both approaches took.
+A parallel GitHub Actions benchmark for choosing a multi-architecture builder
+for a production container pipeline. Buildah and Docker Buildx build the same
+five-stage image for `linux/amd64` and `linux/arm64`, publish separate tags, and
+report cold-build and incremental-build timings side by side.
+
+## Production-style workload
+
+The image contains a Go HTTP service with:
+
+- Chi routing and recovery, timeout, request-ID, and real-IP middleware.
+- Prometheus Go and process metrics at `/metrics`.
+- Health and readiness endpoints at `/healthz` and `/readyz`.
+- Runtime architecture metadata at `/api/info`.
+- A static web interface.
+- Unit tests with the Go race detector.
+- A non-root final image, health check, CA certificates, and timezone data.
+
+The `Containerfile` uses five stages and multiple independently cacheable
+layers:
+
+1. Toolchain and Alpine build packages.
+2. Go module download and verification.
+3. Unit and race tests.
+4. Stripped static binary compilation.
+5. Hardened non-root runtime assembly.
+
+## Benchmark method
+
+The two jobs start in parallel on separate `ubuntu-24.04` runners. Each job:
+
+1. Performs a cold two-platform build with no external cache.
+2. Changes only `benchmark-version.txt`, preserving dependency and test layers.
+3. Performs a warm incremental two-platform rebuild.
+4. Publishes the warm image and smoke-tests its API.
+
+The final Actions job reports these metrics:
+
+| Metric | Meaning |
+| --- | --- |
+| Cold build | First build on a fresh job runner |
+| Warm rebuild | Rebuild after a small source-only change |
+| Publish | Registry publication; Buildx includes its cached export pass |
+| Code-change delivery | Warm rebuild plus publish |
+| Total job steps | Setup, both builds, publication, and validation |
+
+Use several workflow runs before making a production decision. GitHub runner
+allocation, network conditions, registry latency, and base-image cache state can
+vary between runs.
 
 ## Run either published image
 
-Docker automatically pulls the variant matching the host architecture:
+```bash
+docker run --rm -p 8080:8080 shivam718/buildah-multiarch-demo:buildah-latest
+docker run --rm -p 8080:8080 shivam718/buildah-multiarch-demo:buildx-latest
+```
+
+Then open `http://localhost:8080` or inspect the runtime architecture:
 
 ```bash
-docker run --rm shivam718/buildah-multiarch-demo:buildah-latest
-docker run --rm shivam718/buildah-multiarch-demo:buildx-latest
+curl http://localhost:8080/api/info
 ```
 
-Example output:
+## Published tags
 
-```text
-Hello from a multi-architecture image!
-Architecture: aarch64
-Word size: 64-bit
-```
-
-The architecture line will normally be `x86_64` on AMD64 and `aarch64` on
-ARM64.
-
-## Parallel benchmark
-
-The workflow starts two independent jobs at the same time:
-
-| Job | Builder | Published tags |
-| --- | --- | --- |
-| Buildah | `redhat-actions/buildah-build@v3` | `buildah-latest`, `buildah-<commit-sha>` |
-| Buildx | `docker/build-push-action@v7` | `buildx-latest`, `buildx-<commit-sha>` |
-
-Both jobs use the same `ubuntu-24.04` runner image, `Containerfile`, platforms,
-and Docker Hub repository. External build caches are intentionally not enabled.
-The Actions run summary reports:
-
-- Buildah build and push durations.
-- Buildx combined build-and-push duration.
-- Total measured steps for each job.
-- Which timed engine phase was faster and by how many seconds.
-
-The comparison is useful for this small demo, but it is not a universal
-performance result. GitHub runner allocation, registry/network conditions, and
-base-image caching can vary between runs.
-
-Pull requests build both variants without publishing. Pushes to `main`, version
-tags, and manual workflow runs publish both manifests.
+| Builder | Tags |
+| --- | --- |
+| Buildah | `buildah-latest`, `buildah-<commit-sha>` |
+| Buildx | `buildx-latest`, `buildx-<commit-sha>` |
 
 ## Required repository secrets
 
@@ -58,8 +77,6 @@ tags, and manual workflow runs publish both manifests.
 | --- | --- |
 | `DOCKERHUB_USERNAME` | Docker Hub account name |
 | `DOCKERHUB_TOKEN` | Docker Hub personal access token with write access |
-
-Set them with GitHub CLI:
 
 ```bash
 gh secret set DOCKERHUB_USERNAME --repo shivam2003-dev/github-multi-arc
