@@ -1,12 +1,10 @@
-# Production Multi-Arch Buildah vs Buildx
+# Buildah Multi-Arch Image and Manual Benchmark
 
-[![Production Multi-Arch Buildah vs Buildx](https://github.com/shivam2003-dev/github-multi-arc/actions/workflows/build-multiarch.yml/badge.svg)](https://github.com/shivam2003-dev/github-multi-arc/actions/workflows/build-multiarch.yml)
+[![Buildah Multi-Arch Image](https://github.com/shivam2003-dev/github-multi-arc/actions/workflows/buildah.yml/badge.svg)](https://github.com/shivam2003-dev/github-multi-arc/actions/workflows/buildah.yml)
 
-A GitHub Actions workflow for a production multi-architecture container
-pipeline. Buildah builds the five-stage image for `linux/amd64` and
-`linux/arm64` on normal pushes. Docker Buildx is available as an on-demand
-benchmark, where both builders publish separate tags and report timings side by
-side.
+Normal CI uses a simple Buildah workflow to build the five-stage image for
+`linux/amd64` and `linux/arm64`. The original Buildah-versus-Buildx timing
+benchmark is retained separately and runs only when manually dispatched.
 
 ## Production-style workload
 
@@ -25,11 +23,18 @@ layers:
 
 1. Toolchain and Alpine build packages.
 2. Go module download and verification.
-3. Unit and race tests.
+3. Unit tests.
 4. Stripped static binary compilation.
 5. Hardened non-root runtime assembly.
 
-## Benchmark method
+## Workflows
+
+| Workflow | Trigger | Purpose |
+| --- | --- | --- |
+| [`buildah.yml`](.github/workflows/buildah.yml) | Push, tag, pull request | Simple Buildah build; pushes on non-PR events |
+| [`build-multiarch.yml`](.github/workflows/build-multiarch.yml) | **Run workflow** only | Parallel Buildah/Buildx benchmark and timing comparison |
+
+## Manual benchmark method
 
 When manually dispatched, the two benchmark jobs start in parallel on separate
 `ubuntu-24.04` runners. Each job:
@@ -53,13 +58,12 @@ Use several workflow runs before making a production decision. GitHub runner
 allocation, network conditions, registry latency, and base-image cache state can
 vary between runs.
 
-## Trigger behavior
+Start the benchmark from the Actions page by selecting **Production Multi-Arch
+Benchmark (Manual)** and clicking **Run workflow**, or use:
 
-| Event | Jobs that run |
-| --- | --- |
-| Push to `main` or version tag | Buildah only |
-| Pull request | Buildah only, without Docker Hub publication |
-| **Run workflow** (`workflow_dispatch`) | Buildah, Buildx, and timing comparison |
+```bash
+gh workflow run build-multiarch.yml --repo shivam2003-dev/github-multi-arc --ref main
+```
 
 ## Run either published image
 

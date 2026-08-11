@@ -1,14 +1,6 @@
-name: Production Multi-Arch Buildah vs Buildx
+name: Production Multi-Arch Benchmark (Manual)
 
 on:
-  push:
-    branches:
-      - main
-    tags:
-      - "v*"
-  pull_request:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:
@@ -148,7 +140,6 @@ jobs:
 
   buildx:
     name: Buildx production benchmark
-    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     outputs:
       cold_seconds: ${{ steps.buildx_cold_timer.outputs.seconds }}
@@ -287,7 +278,7 @@ jobs:
 
   comparison:
     name: Compare production benchmark timings
-    if: github.event_name == 'workflow_dispatch' && always()
+    if: always()
     needs:
       - buildah
       - buildx

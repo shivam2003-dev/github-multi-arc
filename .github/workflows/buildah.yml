@@ -1,0 +1,61 @@
+name: Buildah Multi-Arch Image
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: buildah-image-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IMAGE_NAME: buildah-multiarch-demo
+  DOCKERHUB_NAMESPACE: shivam718
+
+jobs:
+  build:
+    name: Build linux/amd64 and linux/arm64 with Buildah
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Install QEMU emulation
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes qemu-user-static
+
+      - name: Build multi-architecture image
+        id: build
+        uses: redhat-actions/buildah-build@v3
+        with:
+          image: ${{ env.IMAGE_NAME }}
+          tags: buildah-latest buildah-${{ github.sha }}
+          platforms: linux/amd64,linux/arm64
+          containerfiles: ./Containerfile
+          context: .
+          oci: false
+          layers: true
+
+      - name: Inspect image manifest
+        run: buildah manifest inspect "${{ steps.build.outputs.image }}:buildah-latest"
+
+      - name: Push image manifest to Docker Hub
+        if: github.event_name != 'pull_request'
+        uses: redhat-actions/push-to-registry@v3
+        with:
+          image: ${{ steps.build.outputs.image }}
+          tags: ${{ steps.build.outputs.tags }}
+          registry: docker.io/${{ env.DOCKERHUB_NAMESPACE }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
