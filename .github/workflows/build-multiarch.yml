@@ -57,7 +57,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           containerfiles: ./Containerfile
           context: .
-          oci: true
+          oci: false
           layers: true
           extra-args: |
             --pull-always
@@ -84,10 +84,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           containerfiles: ./Containerfile
           context: .
-          oci: true
+          oci: false
           layers: true
-          extra-args: |
-            --pull-never
 
       - name: Finish Buildah warm-build timer
         id: buildah_warm_timer
