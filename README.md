@@ -2,10 +2,11 @@
 
 [![Production Multi-Arch Buildah vs Buildx](https://github.com/shivam2003-dev/github-multi-arc/actions/workflows/build-multiarch.yml/badge.svg)](https://github.com/shivam2003-dev/github-multi-arc/actions/workflows/build-multiarch.yml)
 
-A parallel GitHub Actions benchmark for choosing a multi-architecture builder
-for a production container pipeline. Buildah and Docker Buildx build the same
-five-stage image for `linux/amd64` and `linux/arm64`, publish separate tags, and
-report cold-build and incremental-build timings side by side.
+A GitHub Actions workflow for a production multi-architecture container
+pipeline. Buildah builds the five-stage image for `linux/amd64` and
+`linux/arm64` on normal pushes. Docker Buildx is available as an on-demand
+benchmark, where both builders publish separate tags and report timings side by
+side.
 
 ## Production-style workload
 
@@ -30,7 +31,8 @@ layers:
 
 ## Benchmark method
 
-The two jobs start in parallel on separate `ubuntu-24.04` runners. Each job:
+When manually dispatched, the two benchmark jobs start in parallel on separate
+`ubuntu-24.04` runners. Each job:
 
 1. Performs a cold two-platform build with no external cache.
 2. Changes only `benchmark-version.txt`, preserving dependency and test layers.
@@ -50,6 +52,14 @@ The final Actions job reports these metrics:
 Use several workflow runs before making a production decision. GitHub runner
 allocation, network conditions, registry latency, and base-image cache state can
 vary between runs.
+
+## Trigger behavior
+
+| Event | Jobs that run |
+| --- | --- |
+| Push to `main` or version tag | Buildah only |
+| Pull request | Buildah only, without Docker Hub publication |
+| **Run workflow** (`workflow_dispatch`) | Buildah, Buildx, and timing comparison |
 
 ## Run either published image
 

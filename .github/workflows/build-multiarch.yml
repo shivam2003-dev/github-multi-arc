@@ -148,6 +148,7 @@ jobs:
 
   buildx:
     name: Buildx production benchmark
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     outputs:
       cold_seconds: ${{ steps.buildx_cold_timer.outputs.seconds }}
@@ -286,7 +287,7 @@ jobs:
 
   comparison:
     name: Compare production benchmark timings
-    if: always()
+    if: github.event_name == 'workflow_dispatch' && always()
     needs:
       - buildah
       - buildx
