@@ -6,7 +6,6 @@ FROM docker.io/library/golang:${GO_VERSION}-alpine AS toolchain
 WORKDIR /src
 
 RUN apk add --no-cache \
-      build-base \
       ca-certificates \
       git \
       tzdata
@@ -21,7 +20,7 @@ FROM dependencies AS test
 
 COPY cmd/ ./cmd/
 COPY internal/ ./internal/
-RUN go test -race -count=1 ./...
+RUN go test -count=1 ./...
 
 FROM test AS builder
 

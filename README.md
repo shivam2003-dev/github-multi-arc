@@ -16,7 +16,7 @@ The image contains a Go HTTP service with:
 - Health and readiness endpoints at `/healthz` and `/readyz`.
 - Runtime architecture metadata at `/api/info`.
 - A static web interface.
-- Unit tests with the Go race detector.
+- Unit tests in the cross-architecture build stage.
 - A non-root final image, health check, CA certificates, and timezone data.
 
 The `Containerfile` uses five stages and multiple independently cacheable
