@@ -1,0 +1,69 @@
+name: Multi-Arch Build with Buildah
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IMAGE_NAME: buildah-multiarch-demo
+
+jobs:
+  build-and-push:
+    name: Build linux/amd64 and linux/arm64
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Install QEMU emulation
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes qemu-user-static
+
+      - name: Build multi-architecture image with Buildah
+        id: build
+        uses: redhat-actions/buildah-build@v3
+        with:
+          image: ${{ env.IMAGE_NAME }}
+          tags: latest ${{ github.sha }}
+          platforms: linux/amd64,linux/arm64
+          containerfiles: ./Containerfile
+          context: .
+          oci: true
+          layers: true
+
+      - name: Inspect the local image manifest
+        run: buildah manifest inspect "${{ steps.build.outputs.image }}:latest"
+
+      - name: Run the native architecture image
+        run: podman run --rm "${{ steps.build.outputs.image }}:latest"
+
+      - name: Push image manifest to Docker Hub
+        id: push
+        if: github.event_name != 'pull_request'
+        uses: redhat-actions/push-to-registry@v3
+        with:
+          image: ${{ steps.build.outputs.image }}
+          tags: ${{ steps.build.outputs.tags }}
+          registry: docker.io/${{ secrets.DOCKERHUB_USERNAME }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Show published image digest
+        if: github.event_name != 'pull_request'
+        run: echo "Published digest ${{ steps.push.outputs.digest }}"
